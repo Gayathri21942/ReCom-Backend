@@ -1,24 +1,25 @@
-# -------- Stage 1: Build the application --------
-FROM maven:3.9.9-eclipse-temurin-25 AS build
+# -------- Stage 1: Build the application using Java 25 and manual Maven --------
+FROM eclipse-temurin:25-jdk AS build
 WORKDIR /build
 
-# Copy only the pom.xml first to cache dependencies (makes future builds faster)
+# Install Maven manually inside the Java 25 container
+RUN apt-get update && apt-get install -y maven
+
+# Copy and download dependencies
 COPY pom.xml .
 RUN mvn -B dependency:go-offline
 
-# Copy the source code and compile the JAR
+# Copy src and build the application
 COPY src ./src
 RUN mvn -B clean package -DskipTests
 
-# -------- Stage 2: Run the application --------
+# -------- Stage 2: Run the application using Java 25 --------
 FROM eclipse-temurin:25-jre
 WORKDIR /app
 
 # Copy the built jar file from Stage 1
 COPY --from=build /build/target/*.jar app.jar
 
-# Expose the internal port (Render overrides this with $PORT dynamically)
-EXPOSE 8080
+EXPOSE 8989
 
-# Execute the application
 ENTRYPOINT ["java", "-jar", "app.jar"]
