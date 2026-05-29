@@ -1,12 +1,24 @@
-# Step 1: Use Maven to build the application
-FROM maven:3.9-eclipse-temurin-17 AS build
-WORKDIR /app
-COPY . .
-RUN mvn clean package -DskipTests
+# -------- Stage 1: Build the application --------
+FROM maven:3.9.9-eclipse-temurin-25 AS build
+WORKDIR /build
 
-# Step 2: Run the built JAR file using Java 17
-FROM eclipse-temurin:17-jre
+# Copy only the pom.xml first to cache dependencies (makes future builds faster)
+COPY pom.xml .
+RUN mvn -B dependency:go-offline
+
+# Copy the source code and compile the JAR
+COPY src ./src
+RUN mvn -B clean package -DskipTests
+
+# -------- Stage 2: Run the application --------
+FROM eclipse-temurin:25-jre
 WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
+
+# Copy the built jar file from Stage 1
+COPY --from=build /build/target/*.jar app.jar
+
+# Expose the internal port (Render overrides this with $PORT dynamically)
 EXPOSE 8080
+
+# Execute the application
 ENTRYPOINT ["java", "-jar", "app.jar"]
